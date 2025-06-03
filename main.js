@@ -9,10 +9,10 @@ function addUrls() {
   const newUrls = urlInput.value
     .split("\n")
     .map(url => url.trim())
-    .filter(url => url && url.includes("ebay.com/itm"));
+    .filter(url => url && url.includes("dappradar.com/dapp/"));
 
   if (newUrls.length === 0) {
-    showStatus("Please enter valid eBay URLs", "error");
+    showStatus("Please enter valid DappRadar dapp URLs", "error");
     return;
   }
 
@@ -85,6 +85,7 @@ function updateProgress(progress) {
       `<div class="error-item">Error processing: ${url}</div>`
     ).join("");
   }
+  updateLiveTable();
 }
 
 // Fonction pour afficher un message de statut
@@ -156,13 +157,13 @@ function stopProcessing() {
 }
 
 // Gestionnaires d'événements
-document.getElementById("addUrlsBtn").addEventListener("click", addUrls);
+document.getElementById("addUrlBtn").addEventListener("click", addUrls);
 document.getElementById("clearBtn").addEventListener("click", clearUrls);
 document.getElementById("stopBtn").addEventListener("click", stopProcessing);
 
 document.getElementById("scrapeBtn").addEventListener("click", () => {
   if (urls.length === 0) {
-    showStatus("Please add at least one eBay URL", "error");
+    showStatus("Please add at least one DappRadar URL", "error");
     return;
   }
 
@@ -195,7 +196,7 @@ document.getElementById("scrapeBtn").addEventListener("click", () => {
 });
 
 // Ajouter l'écouteur d'événements pour le bouton de collecte CSV
-document.getElementById("collectCsvBtn").addEventListener("click", () => {
+document.getElementById("collectBtn").addEventListener("click", () => {
   chrome.runtime.sendMessage({ type: "COLLECT_CSV" }, (response) => {
     if (response && response.success) {
       showStatus("CSV file downloaded successfully!", "success");
@@ -203,4 +204,46 @@ document.getElementById("collectCsvBtn").addEventListener("click", () => {
       showStatus("Failed to download CSV file", "error");
     }
   });
-}); 
+});
+
+function isValidUrl(url) {
+  return url.includes("dappradar.com/dapp/");
+}
+
+function addUrl(url) {
+  if (!isValidUrl(url)) {
+    alert("Please enter a valid DappRadar dapp URL.");
+    return;
+  }
+  // ... existing code ...
+}
+
+// Fonction pour afficher le tableau live des données extraites
+function updateLiveTable() {
+  chrome.storage.local.get(['processingState'], (result) => {
+    const data = (result.processingState && result.processingState.collectedData) || [];
+    const liveTableDiv = document.getElementById('liveTable');
+    if (!data.length) {
+      liveTableDiv.innerHTML = '';
+      return;
+    }
+    // Colonnes principales à afficher
+    const columns = [
+      'title', 'itemSpecifics.Blockchains', 'itemSpecifics.Tags', 'itemSpecifics.DateListed', 'itemSpecifics.DateUpdated'
+    ];
+    const headers = ['Titre', 'Blockchains', 'Tags', 'Date de listing', 'Date de mise à jour'];
+    let html = '<table style="width:100%;border-collapse:collapse;margin-bottom:10px;">';
+    html += '<tr>' + headers.map(h => `<th style=\"border:1px solid #ccc;padding:4px;background:#f0f0f0;\">${h}</th>`).join('') + '</tr>';
+    data.forEach(item => {
+      html += '<tr>' + columns.map(col => {
+        let val = col.split('.').reduce((acc, key) => acc && acc[key], item) || '-';
+        return `<td style=\"border:1px solid #ccc;padding:4px;\">${val}</td>`;
+      }).join('') + '</tr>';
+    });
+    html += '</table>';
+    liveTableDiv.innerHTML = html;
+  });
+}
+
+// Appeler updateLiveTable au chargement
+window.addEventListener('DOMContentLoaded', updateLiveTable); 

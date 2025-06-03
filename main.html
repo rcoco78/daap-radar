@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>eBay Title Scraper</title>
+  <title>DappRadar Scraper</title>
   <style>
     body {
       font-family: sans-serif;
@@ -131,15 +131,17 @@
 </head>
 <body>
   <div class="container">
-    <h1>eBay Title Scraper</h1>
+    <h1>DappRadar Scraper</h1>
     
     <div class="url-container">
-      <textarea id="urlInput" placeholder="Paste eBay URLs (one per line)..."></textarea>
+      <h3>DappRadar URLs</h3>
+      <textarea id="urlInput" placeholder="Paste DappRadar dapp URL..."></textarea>
       <div class="button-group">
-        <button id="addUrlsBtn">Add URLs</button>
+        <button id="addUrlBtn">Add DappRadar URL</button>
         <button id="clearBtn">Clear All</button>
       </div>
     </div>
+    <div id="liveTable"></div>
     
     <div class="url-list" id="urlList">
       <!-- URLs will be added here dynamically -->
@@ -164,7 +166,7 @@
       <button id="scrapeBtn">Start Scraping</button>
       <button id="stopBtn" style="background-color: #d32f2f; display: none;">Stop</button>
     </div>
-    <button id="collectCsvBtn" style="margin-top: 10px; background-color: #2e7d32;">Collect Info CSV</button>
+    <button id="collectBtn">Collect Info CSV</button>
   </div>
 
   <script src="main.js"></script>

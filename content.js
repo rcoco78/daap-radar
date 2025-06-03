@@ -1,51 +1,96 @@
-function extractTitleAndExport() {
+function extractDappRadarInfoAndExport() {
   try {
-    const titleEl = document.querySelector("h1.x-item-title__mainTitle span");
-
-    if (!titleEl) {
-      throw new Error("Title not found on this eBay page");
-    }
-
-    const title = titleEl.innerText.trim();
+    // Titre du dapp
+    const titleEl = document.querySelector('[data-comp-name="ContentCard"] h1');
+    const title = titleEl ? titleEl.innerText.trim() : "-";
     const inputUrl = window.location.href;
 
-    // Extraire les URLs des images et les convertir en haute résolution
-    let imageUrls = [];
-    
-    // Essayer d'abord la grille d'images
-    const imageElements = document.querySelectorAll('.ux-image-grid-item img');
-    if (imageElements.length > 0) {
-      imageUrls = Array.from(imageElements).map(img => {
-        // Remplacer s-l140 par s-l1600 pour obtenir une image en haute résolution
-        return img.src.replace('s-l140', 's-l1600');
-      });
-    } else {
-      // Si pas d'images dans la grille, chercher dans le carousel
-      const carouselImage = document.querySelector('.ux-image-carousel-item img');
-      if (carouselImage) {
-        imageUrls = [carouselImage.src.replace('s-l140', 's-l1600')];
-      }
+    // Image icône (166x166)
+    let iconUrl = null;
+    const iconImg = document.querySelector('[data-comp-name="ContentCard"] img[alt]');
+    if (iconImg && iconImg.src.includes('166x166')) {
+      iconUrl = iconImg.src;
     }
 
-    // Extraire les informations de la section Item specifics
-    const itemSpecifics = {};
-    const itemSpecificsElements = document.querySelectorAll('.ux-labels-values');
-    itemSpecificsElements.forEach(element => {
-      const label = element.querySelector('.ux-labels-values__labels .ux-textspans')?.textContent.trim();
-      const value = element.querySelector('.ux-labels-values__values .ux-textspans')?.textContent.trim();
-      if (label && value) {
-        itemSpecifics[label] = value;
+    // Liens réseaux sociaux et site web
+    let socialLinks = [];
+    let website = null;
+    // Chercher tous les liens dans la section Socials
+    const socialSection = Array.from(document.querySelectorAll('[data-comp-name="ContentCard"] h2')).find(h2 => h2.textContent.trim().toLowerCase().includes('social'));
+    if (socialSection) {
+      const socialDiv = socialSection.parentElement;
+      if (socialDiv) {
+        socialLinks = Array.from(socialDiv.querySelectorAll('a[href]'))
+          .map(a => {
+            // Essayer de deviner le nom du réseau social à partir du href ou du contenu
+            let name = a.href.match(/https?:\/\/(www\.)?([a-zA-Z0-9\-]+)\./);
+            name = name ? name[2].charAt(0).toUpperCase() + name[2].slice(1) : 'Social';
+            return { name, url: a.href };
+          })
+          .filter(obj => obj.url.startsWith('http'));
       }
-    });
+    }
+    // Chercher le site web (souvent le dernier lien ou un lien avec le nom du projet)
+    const websiteLink = socialLinks.find(link => link.url.includes('worldofdypians.com'));
+    if (websiteLink) {
+      website = websiteLink.url;
+      socialLinks = socialLinks.filter(link => link.url !== website);
+    }
+
+    // Liste des blockchains associées (noms)
+    let blockchains = [];
+    // Sélecteur corrigé pour la liste des blockchains
+    const chainRows = document.querySelectorAll('.chain-row-checkbox label span.sc-kJCwM');
+    if (chainRows.length > 0) {
+      blockchains = Array.from(chainRows).map(el => el.textContent.trim());
+    }
+    // Nettoyer et dédupliquer
+    blockchains = Array.from(new Set(blockchains.filter(Boolean)));
+
+    // Extraction des tags
+    let tags = [];
+    const tagsContainer = Array.from(document.querySelectorAll('div')).find(div => div.textContent.trim().startsWith('Tags'));
+    if (tagsContainer) {
+      tags = Array.from(tagsContainer.querySelectorAll('a[href*="/tag/"]')).map(a => a.textContent.trim());
+    }
+
+    // Extraction des dates (listing et update)
+    let dateListed = "-";
+    let dateUpdated = "-";
+    const detailsSection = Array.from(document.querySelectorAll('[data-comp-name="ContentCard"] .sc-keogpA'))[0];
+    if (detailsSection) {
+      const detailRows = detailsSection.querySelectorAll('.sc-eeMvmM');
+      detailRows.forEach(row => {
+        const label = row.querySelector('.sc-cabOPr')?.textContent.trim();
+        const value = row.querySelector('.sc-iTFTee')?.textContent.trim();
+        if (label && value) {
+          if (label.toLowerCase().includes('listed')) dateListed = value;
+          if (label.toLowerCase().includes('last updated')) dateUpdated = value;
+        }
+      });
+    }
+
+    // Statut de l'extraction
+    const status = iconUrl ? "Succès" : "Aucune image trouvée";
+
+    // Préparer les "item specifics"
+    const itemSpecifics = {
+      Website: website || "-",
+      Socials: socialLinks.length > 0 ? JSON.stringify(socialLinks) : "-",
+      Blockchains: blockchains.length > 0 ? blockchains.join(', ') : "-",
+      Tags: tags.length > 0 ? tags.join(', ') : "-",
+      DateListed: dateListed,
+      DateUpdated: dateUpdated
+    };
 
     // Envoyer un message de succès avec les données
     chrome.runtime.sendMessage({
       type: "PROCESSING_COMPLETE",
       url: inputUrl,
       title: title,
-      images: imageUrls,
+      images: iconUrl ? [iconUrl] : [],
       itemSpecifics: itemSpecifics,
-      status: imageUrls.length > 0 ? "Succès" : "Aucune image trouvée"
+      status: status
     });
   } catch (error) {
     // Envoyer un message d'erreur
@@ -60,5 +105,5 @@ function extractTitleAndExport() {
 
 // Attendre que la page soit complètement chargée
 window.onload = () => {
-  setTimeout(extractTitleAndExport, 1500);
+  setTimeout(extractDappRadarInfoAndExport, 2000);
 }; 

@@ -4,8 +4,8 @@ let progressInterval = null;
 
 // Fonction pour ajouter une URL à la liste
 function addUrl(url) {
-  if (!url.includes("ebay.com/itm")) {
-    alert("Please enter a valid eBay item URL.");
+  if (!url.includes("dappradar.com/dapp/")) {
+    alert("Please enter a valid DappRadar dapp URL.");
     return;
   }
   
@@ -104,7 +104,7 @@ document.getElementById("addUrlBtn").addEventListener("click", () => {
 // Gestionnaire pour le bouton de scraping
 document.getElementById("scrapeBtn").addEventListener("click", async () => {
   if (urls.length === 0) {
-    alert("Please add at least one eBay URL.");
+    alert("Please add at least one DappRadar URL.");
     return;
   }
 

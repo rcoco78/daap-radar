@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "eBay Title Scraper",
+  "name": "DappRadar Scraper",
   "version": "1.0",
-  "description": "Extract eBay product title and export to CSV.",
+  "description": "Extract DappRadar dapp info and export to CSV.",
   "permissions": [
     "scripting",
     "activeTab",
@@ -18,9 +18,9 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://www.ebay.com/itm/*"],
+      "matches": ["https://dappradar.com/dapp/*"],
       "js": ["content.js"]
     }
   ],
-  "host_permissions": ["https://www.ebay.com/itm/*"]
+  "host_permissions": ["https://dappradar.com/dapp/*"]
 } 

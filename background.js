@@ -1,5 +1,5 @@
-// Background script for eBay Title Scraper
-// This file is required by manifest.json but doesn't need any functionality for this extension 
+// Background script for DappRadar Scraper
+// Ce fichier est requis par manifest.json pour l'extension DappRadar
 
 // Constantes
 const MAX_CONCURRENT_TABS = 5;
@@ -228,66 +228,77 @@ function generateCSV() {
     "Images",
     "Images Number",
     "Platform",
-    "Part Link Number",
-    "PartNumber",
-    "Year",
-    "Make",
-    "Model",
     "Statut"
   ];
   
   // Collecter tous les autres item specifics
   const otherItemSpecifics = new Set();
+  const socialNames = new Set();
   collectedData.forEach(item => {
     if (item.itemSpecifics) {
       Object.keys(item.itemSpecifics).forEach(key => {
         if (!priorityColumns.includes(key)) {
-          otherItemSpecifics.add(key);
+          if (key === 'Socials' && item.itemSpecifics['Socials'] && item.itemSpecifics['Socials'] !== '-') {
+            // Extraire les noms de réseaux sociaux dynamiquement
+            try {
+              const socialsArr = JSON.parse(item.itemSpecifics['Socials']);
+              socialsArr.forEach(social => {
+                if (social.name) socialNames.add(social.name);
+              });
+            } catch (e) {}
+          } else {
+            otherItemSpecifics.add(key);
+          }
         }
       });
     }
   });
-  
-  // Convertir en tableau et trier les autres colonnes
+  // Colonnes dynamiques pour les réseaux sociaux
+  const sortedSocialNames = Array.from(socialNames).sort();
+  // Colonnes supplémentaires
   const sortedOtherColumns = Array.from(otherItemSpecifics).sort();
-  
+
   // Créer l'en-tête du CSV
   let csvContent = priorityColumns.join(";");
-  csvContent += ";;"; // Colonne séparatrice vide dans l'en-tête
-  csvContent += sortedOtherColumns.join(";");
+  if (sortedSocialNames.length > 0) {
+    csvContent += ";" + sortedSocialNames.join(";");
+  }
+  if (sortedOtherColumns.length > 0) {
+    csvContent += ";" + sortedOtherColumns.join(";");
+  }
   csvContent += "\n";
-  
+
   // Ajouter toutes les données collectées
   collectedData.forEach(item => {
     // Échapper les guillemets dans le titre pour le CSV
     const escapedTitle = (item.title || "").replace(/"/g, '""');
     const images = (item.images || []).join(" | ");
     const escapedImages = images.replace(/"/g, '""');
-    
-    // Ligne de base avec les colonnes prioritaires
     const imagesCount = item.images ? item.images.length : 0;
-    let row = `${item.url};"${escapedTitle || '-'}";"${escapedImages || '-'}";${imagesCount};eBay`;
-    
-    // Ajouter les autres colonnes prioritaires
-    priorityColumns.slice(5).forEach(key => {
-      const value = key === "Statut" ? (item.status || "-") : (item.itemSpecifics?.[key] || "-");
-      const escapedValue = value.replace(/"/g, '""');
-      row += `;"${escapedValue}"`;
+    let row = `${item.url};"${escapedTitle || '-'}";"${escapedImages || '-'}";${imagesCount};DappRadar`;
+    // Statut
+    row += `;"${item.status || '-'}"`;
+    // Colonnes dynamiques pour les réseaux sociaux
+    let socialsMap = {};
+    if (item.itemSpecifics && item.itemSpecifics['Socials'] && item.itemSpecifics['Socials'] !== '-') {
+      try {
+        const socialsArr = JSON.parse(item.itemSpecifics['Socials']);
+        socialsArr.forEach(social => {
+          if (social.name) socialsMap[social.name] = social.url;
+        });
+      } catch (e) {}
+    }
+    sortedSocialNames.forEach(name => {
+      row += `;"${socialsMap[name] || '-'}"`;
     });
-    
-    // Ajouter la colonne séparatrice
-    row += ";;";
-    
-    // Ajouter les autres colonnes
+    // Autres colonnes
     sortedOtherColumns.forEach(key => {
       const value = item.itemSpecifics?.[key] || "-";
       const escapedValue = value.replace(/"/g, '""');
       row += `;"${escapedValue}"`;
     });
-    
     csvContent += row + "\n";
   });
-  
   return csvContent;
 }
 
@@ -317,7 +328,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const dataUrl = reader.result;
         chrome.downloads.download({
           url: dataUrl,
-          filename: 'ebay_titles.csv',
+          filename: 'dappradar_dapps.csv',
           saveAs: true
         }, () => {
           sendResponse({ success: true });
