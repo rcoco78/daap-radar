@@ -37,6 +37,17 @@ function extractDappRadarInfoAndExport() {
       socialLinks = socialLinks.filter(link => link.url !== website);
     }
 
+    // Extraction du site web (nouveau sélecteur)
+    if (!website) {
+      const websiteLabel = Array.from(document.querySelectorAll('[data-comp-name="ContentCard"] .sc-kAKMhj')).find(el => el.textContent.trim().toLowerCase().startsWith('website'));
+      if (websiteLabel) {
+        const websiteSpan = websiteLabel.parentElement.querySelector('span.sc-dkrFOg');
+        if (websiteSpan) {
+          website = websiteSpan.textContent.trim();
+        }
+      }
+    }
+
     // Liste des blockchains associées (noms)
     let blockchains = [];
     // Sélecteur corrigé pour la liste des blockchains
