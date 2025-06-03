@@ -165,6 +165,7 @@ async function processUrl(url) {
           status: "Failed",
           error: "Timeout: Page took too long to load"
         });
+        saveCollectedData();
         updateProgress();
         resolve();
       }, 10000);
@@ -182,6 +183,7 @@ async function processUrl(url) {
             images: message.images || [],
             itemSpecifics: message.itemSpecifics || {}
           });
+          saveCollectedData();
           updateProgress();
           resolve();
         } else if (message.type === "PROCESSING_ERROR" && message.url === url) {
@@ -196,6 +198,7 @@ async function processUrl(url) {
             error: message.error || "Unknown error",
             itemSpecifics: message.itemSpecifics || {}
           });
+          saveCollectedData();
           updateProgress();
           resolve();
         }
@@ -212,6 +215,7 @@ async function processUrl(url) {
       error: error.message || "Failed to process URL",
       itemSpecifics: {}
     });
+    saveCollectedData();
     updateProgress();
   }
 }
@@ -235,7 +239,7 @@ async function updateProgress() {
 }
 
 // Fonction pour générer le CSV
-function generateCSV() {
+function generateCSV(data = collectedData) {
   // Définir l'ordre des colonnes prioritaires
   const priorityColumns = [
     "URL",
@@ -249,7 +253,7 @@ function generateCSV() {
   // Collecter tous les autres item specifics
   const otherItemSpecifics = new Set();
   const socialNames = new Set();
-  collectedData.forEach(item => {
+  data.forEach(item => {
     if (item.itemSpecifics) {
       Object.keys(item.itemSpecifics).forEach(key => {
         if (!priorityColumns.includes(key)) {
@@ -284,7 +288,7 @@ function generateCSV() {
   csvContent += "\n";
 
   // Ajouter toutes les données collectées
-  collectedData.forEach(item => {
+  data.forEach(item => {
     // Échapper les guillemets dans le titre pour le CSV
     const escapedTitle = (item.title || "").replace(/"/g, '""');
     const images = (item.images || []).join(" | ");
@@ -332,30 +336,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Indique que la réponse sera asynchrone
   } else if (message.type === "COLLECT_CSV") {
     try {
-      // Générer le CSV avec toutes les données collectées
-      const csvContent = generateCSV();
-      
-      // Créer un blob et télécharger le fichier
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-      const reader = new FileReader();
-      
-      reader.onload = function() {
-        const dataUrl = reader.result;
-        chrome.downloads.download({
-          url: dataUrl,
-          filename: 'dappradar_dapps.csv',
-          saveAs: true
-        }, () => {
-          sendResponse({ success: true });
-        });
-      };
-      
-      reader.onerror = function() {
-        console.error('Error reading blob:', reader.error);
-        sendResponse({ success: false, error: 'Failed to read blob data' });
-      };
-      
-      reader.readAsDataURL(blob);
+      chrome.storage.local.get(['collectedData'], (result) => {
+        const data = result.collectedData || [];
+        // Générer le CSV avec les données du storage
+        const csvContent = generateCSV(data);
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+        const reader = new FileReader();
+        reader.onload = function() {
+          const dataUrl = reader.result;
+          chrome.downloads.download({
+            url: dataUrl,
+            filename: 'dappradar_dapps.csv',
+            saveAs: true
+          }, () => {
+            sendResponse({ success: true });
+          });
+        };
+        reader.onerror = function() {
+          console.error('Error reading blob:', reader.error);
+          sendResponse({ success: false, error: 'Failed to read blob data' });
+        };
+        reader.readAsDataURL(blob);
+      });
     } catch (error) {
       console.error('Error generating CSV:', error);
       sendResponse({ success: false, error: error.message });
@@ -367,4 +369,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // Écouter les clics sur l'icône de l'extension
 chrome.action.onClicked.addListener(() => {
   openMainWindow();
-}); 
+});
+
+// Ajoute cette fonction utilitaire pour sauvegarder les données
+function saveCollectedData() {
+  chrome.storage.local.set({ collectedData });
+} 
