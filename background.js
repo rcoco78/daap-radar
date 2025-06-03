@@ -2,7 +2,7 @@
 // Ce fichier est requis par manifest.json pour l'extension DappRadar
 
 // Constantes
-const MAX_CONCURRENT_TABS = 5;
+const MAX_CONCURRENT_TABS = 10;
 let isProcessing = false;
 let shouldStop = false;
 let currentBatch = [];
@@ -10,6 +10,7 @@ let processedUrls = new Set();
 let failedUrls = new Set();
 let mainWindowId = null;
 let collectedData = []; // Stockage des données collectées
+let scrapingWindowId = null;
 
 // Fonction pour ouvrir la fenêtre principale
 async function openMainWindow() {
@@ -41,6 +42,17 @@ async function startProcessing(urls) {
   isProcessing = true;
   shouldStop = false;
   
+  // Créer une fenêtre dédiée pour le scraping si besoin
+  if (!scrapingWindowId) {
+    const win = await chrome.windows.create({
+      focused: false,
+      type: 'normal',
+      state: 'minimized',
+      url: 'about:blank'
+    });
+    scrapingWindowId = win.id;
+  }
+  
   // Réinitialiser les états
   currentBatch = [...urls];
   processedUrls.clear();
@@ -69,12 +81,15 @@ async function stopProcessing() {
   shouldStop = true;
   isProcessing = false;
   
-  // Fermer tous les onglets ouverts
-  const tabs = await chrome.tabs.query({});
-  for (const tab of tabs) {
-    if (tab.url.includes('ebay.com/itm')) {
+  // Fermer tous les onglets ouverts dans la fenêtre dédiée
+  if (scrapingWindowId) {
+    const tabs = await chrome.tabs.query({ windowId: scrapingWindowId });
+    for (const tab of tabs) {
       await chrome.tabs.remove(tab.id);
     }
+    // Fermer la fenêtre dédiée
+    await chrome.windows.remove(scrapingWindowId);
+    scrapingWindowId = null;
   }
   
   // Mettre à jour l'état
@@ -126,8 +141,8 @@ async function processUrl(url) {
   if (shouldStop) return;
   
   try {
-    // Créer un nouvel onglet
-    const tab = await chrome.tabs.create({ url });
+    // Créer un nouvel onglet dans la fenêtre dédiée
+    const tab = await chrome.tabs.create({ url, windowId: scrapingWindowId, active: false });
     
     // Attendre que la page soit chargée
     await new Promise(resolve => setTimeout(resolve, 2000));
